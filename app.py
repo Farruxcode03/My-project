@@ -12,31 +12,46 @@ import os
 app = Flask(__name__)
 
 # ==========================================
-# POSTGRESQL SOZLAMALARI
+# SUPABASE POSTGRESQL
 # ==========================================
 
-DATABASE_URL=os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 @contextmanager
 def db_connection():
-    conn = psycopg2.connect(DATABASE_URL)
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL Render Environment Variables ichida sozlanmagan."
+        )
+
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        sslmode="require",
+        connect_timeout=15
+    )
+
     try:
         with conn:
             yield conn
     finally:
-        conn.psycopg2.connect(DATABASE_URL)
+        conn.close()
 
 
 # ==========================================
 # YORDAMCHI FUNKSIYALAR
 # ==========================================
 
-NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+NAME_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+)
 
 
 def valid_name(name):
-    return isinstance(name, str) and bool(NAME_PATTERN.fullmatch(name))
+    return (
+        isinstance(name, str)
+        and bool(NAME_PATTERN.fullmatch(name))
+    )
 
 
 def check_name(name):
@@ -47,13 +62,20 @@ def check_name(name):
 
 def json_safe(value):
     if isinstance(value, dict):
-        return {k: json_safe(v) for k, v in value.items()}
+        return {
+            key: json_safe(val)
+            for key, val in value.items()
+        }
+
     if isinstance(value, list):
-        return [json_safe(v) for v in value]
+        return [json_safe(item) for item in value]
+
     if isinstance(value, (datetime, date, time)):
         return value.isoformat()
+
     if isinstance(value, Decimal):
         return float(value)
+
     return value
 
 
@@ -62,6 +84,14 @@ def error_response(message, status=400):
         "success": False,
         "error": str(message)
     }), status
+
+
+def server_error(error_name):
+    app.logger.exception(error_name)
+    return error_response(
+        "Serverda xatolik yuz berdi. Render Logs bo‘limini tekshiring.",
+        500
+    )
 
 
 def check_table(cur, table):
@@ -87,8 +117,12 @@ def get_columns(cur, table):
     check_table(cur, table)
 
     cur.execute("""
-        SELECT column_name, data_type, is_nullable,
-               column_default, is_identity
+        SELECT
+            column_name,
+            data_type,
+            is_nullable,
+            column_default,
+            is_identity
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = %s
@@ -102,20 +136,30 @@ def get_primary_keys(cur, table):
     check_table(cur, table)
 
     cur.execute("""
-        SELECT a.attname AS column_name
+        SELECT
+            a.attname AS column_name,
+            k.ordinality
         FROM pg_index i
-        JOIN pg_class t ON t.oid = i.indrelid
-        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_class t
+            ON t.oid = i.indrelid
+        JOIN pg_namespace n
+            ON n.oid = t.relnamespace
+        CROSS JOIN LATERAL
+            unnest(i.indkey) WITH ORDINALITY
+            AS k(attnum, ordinality)
         JOIN pg_attribute a
-          ON a.attrelid = t.oid
-         AND a.attnum = ANY(i.indkey)
+            ON a.attrelid = t.oid
+           AND a.attnum = k.attnum
         WHERE n.nspname = 'public'
           AND t.relname = %s
           AND i.indisprimary
-        ORDER BY array_position(i.indkey, a.attnum)
+        ORDER BY k.ordinality
     """, (table,))
 
-    return [row["column_name"] for row in cur.fetchall()]
+    return [
+        row["column_name"]
+        for row in cur.fetchall()
+    ]
 
 
 def get_table_names(cur):
@@ -126,16 +170,23 @@ def get_table_names(cur):
           AND table_type = 'BASE TABLE'
         ORDER BY table_name
     """)
-    return [row["table_name"] for row in cur.fetchall()]
+
+    return [
+        row["table_name"]
+        for row in cur.fetchall()
+    ]
 
 
 def get_count(cur, table):
     cur.execute(
-        sql.SQL("SELECT COUNT(*) AS total FROM {}.{}").format(
+        sql.SQL(
+            "SELECT COUNT(*) AS total FROM {}.{}"
+        ).format(
             sql.Identifier("public"),
             sql.Identifier(table)
         )
     )
+
     return cur.fetchone()["total"]
 
 
@@ -159,13 +210,45 @@ def get_editable_columns(columns, primary_keys):
     return result
 
 
+def get_clean_values(values, allowed):
+    return {
+        key: value
+        for key, value in values.items()
+        if key in allowed
+    }
+
+
 # ==========================================
-# HTML ASOSIY SAHIFA
+# ASOSIY SAHIFA
 # ==========================================
 
 @app.route("/")
 def home():
-    return send_from_directory(app.root_path, "index.html")
+    return send_from_directory(
+        app.root_path,
+        "index.html"
+    )
+
+
+# ==========================================
+# SERVER TEKSHIRUVI
+# ==========================================
+
+@app.route("/health", methods=["GET"])
+def health():
+    try:
+        with db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+
+        return jsonify({
+            "success": True,
+            "server": "online",
+            "database": "connected"
+        })
+
+    except Exception:
+        return server_error("Health check xatosi")
 
 
 # ==========================================
@@ -176,7 +259,10 @@ def home():
 def dashboard():
     try:
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 tables = get_table_names(cur)
 
                 table_info = []
@@ -193,20 +279,19 @@ def dashboard():
 
                 return jsonify({
                     "success": True,
-                    "database": DB_CONFIG["database"],
+                    "database": conn.info.dbname,
                     "tables": tables,
                     "total_tables": len(tables),
                     "total_rows": total_rows,
                     "table_info": table_info
                 })
 
-    except Exception as e:
-        app.logger.exception("Dashboard xatosi")
-        return error_response(e, 500)
+    except Exception:
+        return server_error("Dashboard xatosi")
 
 
 # ==========================================
-# JADVAL MA'LUMOTLARI
+# JADVAL MA'LUMOTLARINI OLISH
 # ==========================================
 
 @app.route("/api/data", methods=["GET"])
@@ -215,12 +300,17 @@ def get_table_data():
 
     try:
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 columns = get_columns(cur, table)
                 primary_keys = get_primary_keys(cur, table)
 
                 cur.execute(
-                    sql.SQL("SELECT * FROM {}.{}").format(
+                    sql.SQL(
+                        "SELECT * FROM {}.{}"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table)
                     )
@@ -231,19 +321,23 @@ def get_table_data():
                 return jsonify({
                     "success": True,
                     "table": table,
-                    "columns": [c["column_name"] for c in columns],
+                    "columns": [
+                        col["column_name"]
+                        for col in columns
+                    ],
                     "rows": json_safe(rows),
                     "primary_key": primary_keys,
                     "editable_columns": get_editable_columns(
-                        columns, primary_keys
+                        columns,
+                        primary_keys
                     )
                 })
 
     except ValueError as e:
         return error_response(e, 404)
-    except Exception as e:
-        app.logger.exception("Jadval ma'lumotlarini olish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Jadval ma'lumotlarini olish xatosi")
 
 
 # ==========================================
@@ -259,7 +353,9 @@ def create_table():
         columns = data.get("columns", [])
 
         if not isinstance(columns, list):
-            raise ValueError("Ustunlar ro‘yxat shaklida bo‘lishi kerak.")
+            raise ValueError(
+                "Ustunlar ro‘yxat shaklida bo‘lishi kerak."
+            )
 
         clean_columns = []
 
@@ -267,15 +363,23 @@ def create_table():
             col = check_name(col)
 
             if col.lower() == "id":
-                raise ValueError("id ustuni avtomatik yaratiladi.")
+                raise ValueError(
+                    "id ustuni avtomatik yaratiladi."
+                )
 
-            if col.lower() in [x.lower() for x in clean_columns]:
-                raise ValueError("Takroriy ustun nomi: " + col)
+            if col.lower() in [
+                item.lower() for item in clean_columns
+            ]:
+                raise ValueError(
+                    "Takroriy ustun nomi: " + col
+                )
 
             clean_columns.append(col)
 
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
 
                 cur.execute("""
                     SELECT EXISTS (
@@ -287,21 +391,29 @@ def create_table():
                 """, (table,))
 
                 if cur.fetchone()["exists"]:
-                    raise ValueError("Bu jadval allaqachon mavjud.")
+                    raise ValueError(
+                        "Bu jadval allaqachon mavjud."
+                    )
 
                 definitions = [
-                    sql.SQL("{} BIGSERIAL PRIMARY KEY").format(
+                    sql.SQL(
+                        "{} BIGSERIAL PRIMARY KEY"
+                    ).format(
                         sql.Identifier("id")
                     )
                 ]
 
                 for col in clean_columns:
                     definitions.append(
-                        sql.SQL("{} TEXT").format(sql.Identifier(col))
+                        sql.SQL("{} TEXT").format(
+                            sql.Identifier(col)
+                        )
                     )
 
                 cur.execute(
-                    sql.SQL("CREATE TABLE {}.{} ({})").format(
+                    sql.SQL(
+                        "CREATE TABLE {}.{} ({})"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table),
                         sql.SQL(", ").join(definitions)
@@ -316,9 +428,9 @@ def create_table():
 
     except ValueError as e:
         return error_response(e, 400)
-    except Exception as e:
-        app.logger.exception("Jadval yaratish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Jadval yaratish xatosi")
 
 
 # ==========================================
@@ -334,7 +446,10 @@ def rename_table(table):
         new_name = check_name(data.get("new_name", ""))
 
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 check_table(cur, table)
 
                 if table == new_name:
@@ -345,17 +460,22 @@ def rename_table(table):
 
                 cur.execute("""
                     SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
+                        SELECT 1
+                        FROM information_schema.tables
                         WHERE table_schema = 'public'
                           AND table_name = %s
                     ) AS exists
                 """, (new_name,))
 
                 if cur.fetchone()["exists"]:
-                    raise ValueError("Yangi nom bilan jadval mavjud.")
+                    raise ValueError(
+                        "Yangi nom bilan jadval mavjud."
+                    )
 
                 cur.execute(
-                    sql.SQL("ALTER TABLE {}.{} RENAME TO {}").format(
+                    sql.SQL(
+                        "ALTER TABLE {}.{} RENAME TO {}"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table),
                         sql.Identifier(new_name)
@@ -370,9 +490,9 @@ def rename_table(table):
 
     except ValueError as e:
         return error_response(e, 400)
-    except Exception as e:
-        app.logger.exception("Jadval nomini o'zgartirish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Jadval nomini o‘zgartirish xatosi")
 
 
 # ==========================================
@@ -383,11 +503,16 @@ def rename_table(table):
 def drop_table(table):
     try:
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 check_table(cur, table)
 
                 cur.execute(
-                    sql.SQL("DROP TABLE {}.{}").format(
+                    sql.SQL(
+                        "DROP TABLE {}.{}"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table)
                     )
@@ -401,9 +526,9 @@ def drop_table(table):
 
     except ValueError as e:
         return error_response(e, 404)
-    except Exception as e:
-        app.logger.exception("Jadvalni o'chirish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Jadvalni o‘chirish xatosi")
 
 
 # ==========================================
@@ -419,44 +544,62 @@ def add_record():
         values = data.get("data", {})
 
         if not isinstance(values, dict):
-            raise ValueError("Ma'lumotlar obyekt shaklida bo‘lishi kerak.")
+            raise ValueError(
+                "Ma'lumotlar obyekt shaklida bo‘lishi kerak."
+            )
 
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 columns = get_columns(cur, table)
                 primary_keys = get_primary_keys(cur, table)
-                allowed = get_editable_columns(columns, primary_keys)
 
-                clean_values = {
-                    key: value
-                    for key, value in values.items()
-                    if key in allowed
-                }
+                allowed = get_editable_columns(
+                    columns,
+                    primary_keys
+                )
+
+                clean_values = get_clean_values(
+                    values,
+                    allowed
+                )
 
                 if not clean_values:
                     cur.execute(
-                        sql.SQL("INSERT INTO {}.{} DEFAULT VALUES").format(
+                        sql.SQL(
+                            "INSERT INTO {}.{} DEFAULT VALUES"
+                        ).format(
                             sql.Identifier("public"),
                             sql.Identifier(table)
                         )
                     )
+
                 else:
                     names = list(clean_values.keys())
 
                     placeholders = sql.SQL(", ").join(
-                        sql.Placeholder() for _ in names
+                        sql.Placeholder()
+                        for _ in names
                     )
 
                     cur.execute(
-                        sql.SQL("INSERT INTO {}.{} ({}) VALUES ({})").format(
+                        sql.SQL(
+                            "INSERT INTO {}.{} ({}) VALUES ({})"
+                        ).format(
                             sql.Identifier("public"),
                             sql.Identifier(table),
                             sql.SQL(", ").join(
-                                sql.Identifier(x) for x in names
+                                sql.Identifier(name)
+                                for name in names
                             ),
                             placeholders
                         ),
-                        [clean_values[x] for x in names]
+                        [
+                            clean_values[name]
+                            for name in names
+                        ]
                     )
 
         return jsonify({
@@ -466,9 +609,9 @@ def add_record():
 
     except ValueError as e:
         return error_response(e, 400)
-    except Exception as e:
-        app.logger.exception("Yozuv qo'shish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Yozuv qo‘shish xatosi")
 
 
 # ==========================================
@@ -479,14 +622,20 @@ def add_record():
 def update_record(record_id):
     try:
         table = request.args.get("table", "")
+
         data = request.get_json(silent=True) or {}
         values = data.get("data", {})
 
         if not isinstance(values, dict):
-            raise ValueError("Ma'lumotlar obyekt shaklida bo‘lishi kerak.")
+            raise ValueError(
+                "Ma'lumotlar obyekt shaklida bo‘lishi kerak."
+            )
 
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 columns = get_columns(cur, table)
                 primary_keys = get_primary_keys(cur, table)
 
@@ -495,16 +644,20 @@ def update_record(record_id):
                         "Tahrirlash uchun bitta PRIMARY KEY kerak."
                     )
 
-                allowed = get_editable_columns(columns, primary_keys)
+                allowed = get_editable_columns(
+                    columns,
+                    primary_keys
+                )
 
-                clean_values = {
-                    key: value
-                    for key, value in values.items()
-                    if key in allowed
-                }
+                clean_values = get_clean_values(
+                    values,
+                    allowed
+                )
 
                 if not clean_values:
-                    raise ValueError("Tahrirlash uchun ustun topilmadi.")
+                    raise ValueError(
+                        "Tahrirlash uchun ustun topilmadi."
+                    )
 
                 assignments = sql.SQL(", ").join(
                     sql.SQL("{} = {}").format(
@@ -517,7 +670,9 @@ def update_record(record_id):
                 pk = primary_keys[0]
 
                 cur.execute(
-                    sql.SQL("UPDATE {}.{} SET {} WHERE {} = {}").format(
+                    sql.SQL(
+                        "UPDATE {}.{} SET {} WHERE {} = {}"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table),
                         assignments,
@@ -537,9 +692,9 @@ def update_record(record_id):
 
     except ValueError as e:
         return error_response(e, 400)
-    except Exception as e:
-        app.logger.exception("Yozuv tahrirlash xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Yozuvni tahrirlash xatosi")
 
 
 # ==========================================
@@ -552,7 +707,10 @@ def delete_record(record_id):
         table = request.args.get("table", "")
 
         with db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
                 check_table(cur, table)
 
                 primary_keys = get_primary_keys(cur, table)
@@ -565,7 +723,9 @@ def delete_record(record_id):
                 pk = primary_keys[0]
 
                 cur.execute(
-                    sql.SQL("DELETE FROM {}.{} WHERE {} = {}").format(
+                    sql.SQL(
+                        "DELETE FROM {}.{} WHERE {} = {}"
+                    ).format(
                         sql.Identifier("public"),
                         sql.Identifier(table),
                         sql.Identifier(pk),
@@ -584,9 +744,18 @@ def delete_record(record_id):
 
     except ValueError as e:
         return error_response(e, 400)
-    except Exception as e:
-        app.logger.exception("Yozuv o'chirish xatosi")
-        return error_response(e, 500)
+
+    except Exception:
+        return server_error("Yozuvni o‘chirish xatosi")
+
+
+# ==========================================
+# 404
+# ==========================================
+
+@app.errorhandler(404)
+def not_found(error):
+    return error_response("Sahifa topilmadi.", 404)
 
 
 # ==========================================
@@ -595,7 +764,7 @@ def delete_record(record_id):
 
 if __name__ == "__main__":
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=False
     )
