@@ -1,3 +1,5 @@
+
+from flask import Flask, jsonify, request, send_from_directory
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
@@ -7,7 +9,7 @@ from decimal import Decimal
 import re
 import os
 
-app = Flask(name)
+app = Flask(__name__)
 
 # ==========================================
 # SUPABASE POSTGRESQL
@@ -173,6 +175,9 @@ def get_table_names(cur):
         row["table_name"]
         for row in cur.fetchall()
     ]
+
+
+def get_count(cur, table):
     cur.execute(
         sql.SQL(
             "SELECT COUNT(*) AS total FROM {}.{}"
@@ -330,6 +335,8 @@ def get_table_data():
 
     except ValueError as e:
         return error_response(e, 404)
+
+    except Exception:
         return server_error("Jadval ma'lumotlarini olish xatosi")
 
 
@@ -464,6 +471,8 @@ def rename_table(table):
                     raise ValueError(
                         "Yangi nom bilan jadval mavjud."
                     )
+
+                cur.execute(
                     sql.SQL(
                         "ALTER TABLE {}.{} RENAME TO {}"
                     ).format(
@@ -505,4 +514,257 @@ def drop_table(table):
                         "DROP TABLE {}.{}"
                     ).format(
                         sql.Identifier("public"),
-                        sql.Identifier
+                        sql.Identifier(table)
+                    )
+                )
+
+        return jsonify({
+            "success": True,
+            "message": "Jadval o‘chirildi.",
+            "table": table
+        })
+
+    except ValueError as e:
+        return error_response(e, 404)
+
+    except Exception:
+        return server_error("Jadvalni o‘chirish xatosi")
+
+
+# ==========================================
+# YANGI YOZUV QO'SHISH
+# ==========================================
+
+@app.route("/api/records", methods=["POST"])
+def add_record():
+    try:
+        data = request.get_json(silent=True) or {}
+
+        table = data.get("table", "")
+        values = data.get("data", {})
+
+        if not isinstance(values, dict):
+            raise ValueError(
+                "Ma'lumotlar obyekt shaklida bo‘lishi kerak."
+            )
+
+        with db_connection() as conn:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
+                columns = get_columns(cur, table)
+                primary_keys = get_primary_keys(cur, table)
+
+                allowed = get_editable_columns(
+                    columns,
+                    primary_keys
+                )
+
+                clean_values = get_clean_values(
+                    values,
+                    allowed
+                )
+
+                if not clean_values:
+                    cur.execute(
+                        sql.SQL(
+                            "INSERT INTO {}.{} DEFAULT VALUES"
+                        ).format(
+                            sql.Identifier("public"),
+                            sql.Identifier(table)
+                        )
+                    )
+
+                else:
+                    names = list(clean_values.keys())
+
+                    placeholders = sql.SQL(", ").join(
+                        sql.Placeholder()
+                        for _ in names
+                    )
+
+                    cur.execute(
+                        sql.SQL(
+                            "INSERT INTO {}.{} ({}) VALUES ({})"
+                        ).format(
+                            sql.Identifier("public"),
+                            sql.Identifier(table),
+                            sql.SQL(", ").join(
+                                sql.Identifier(name)
+                                for name in names
+                            ),
+                            placeholders
+                        ),
+                        [
+                            clean_values[name]
+                            for name in names
+                        ]
+                    )
+
+        return jsonify({
+            "success": True,
+            "message": "Yozuv qo‘shildi."
+        }), 201
+
+    except ValueError as e:
+        return error_response(e, 400)
+
+    except Exception:
+        return server_error("Yozuv qo‘shish xatosi")
+
+
+# ==========================================
+# YOZUVNI TAHRIRLASH
+# ==========================================
+
+@app.route("/api/records/<record_id>", methods=["PUT"])
+def update_record(record_id):
+    try:
+        table = request.args.get("table", "")
+
+        data = request.get_json(silent=True) or {}
+        values = data.get("data", {})
+
+        if not isinstance(values, dict):
+            raise ValueError(
+                "Ma'lumotlar obyekt shaklida bo‘lishi kerak."
+            )
+
+        with db_connection() as conn:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
+                columns = get_columns(cur, table)
+                primary_keys = get_primary_keys(cur, table)
+
+                if len(primary_keys) != 1:
+                    raise ValueError(
+                        "Tahrirlash uchun bitta PRIMARY KEY kerak."
+                    )
+
+                allowed = get_editable_columns(
+                    columns,
+                    primary_keys
+                )
+
+                clean_values = get_clean_values(
+                    values,
+                    allowed
+                )
+
+                if not clean_values:
+                    raise ValueError(
+                        "Tahrirlash uchun ustun topilmadi."
+                    )
+
+                assignments = sql.SQL(", ").join(
+                    sql.SQL("{} = {}").format(
+                        sql.Identifier(key),
+                        sql.Placeholder()
+                    )
+                    for key in clean_values
+                )
+
+                pk = primary_keys[0]
+
+                cur.execute(
+                    sql.SQL(
+                        "UPDATE {}.{} SET {} WHERE {} = {}"
+                    ).format(
+                        sql.Identifier("public"),
+                        sql.Identifier(table),
+                        assignments,
+                        sql.Identifier(pk),
+                        sql.Placeholder()
+                    ),
+                    list(clean_values.values()) + [record_id]
+                )
+
+                if cur.rowcount == 0:
+                    raise ValueError("Yozuv topilmadi.")
+
+        return jsonify({
+            "success": True,
+            "message": "Yozuv yangilandi."
+        })
+
+    except ValueError as e:
+        return error_response(e, 400)
+
+    except Exception:
+        return server_error("Yozuvni tahrirlash xatosi")
+
+
+# ==========================================
+# YOZUVNI O'CHIRISH
+# ==========================================
+
+@app.route("/api/records/<record_id>", methods=["DELETE"])
+def delete_record(record_id):
+    try:
+        table = request.args.get("table", "")
+
+        with db_connection() as conn:
+            with conn.cursor(
+                cursor_factory=RealDictCursor
+            ) as cur:
+
+                check_table(cur, table)
+
+                primary_keys = get_primary_keys(cur, table)
+
+                if len(primary_keys) != 1:
+                    raise ValueError(
+                        "O‘chirish uchun bitta PRIMARY KEY kerak."
+                    )
+
+                pk = primary_keys[0]
+
+                cur.execute(
+                    sql.SQL(
+                        "DELETE FROM {}.{} WHERE {} = {}"
+                    ).format(
+                        sql.Identifier("public"),
+                        sql.Identifier(table),
+                        sql.Identifier(pk),
+                        sql.Placeholder()
+                    ),
+                    (record_id,)
+                )
+
+                if cur.rowcount == 0:
+                    raise ValueError("Yozuv topilmadi.")
+
+        return jsonify({
+            "success": True,
+            "message": "Yozuv o‘chirildi."
+        })
+
+    except ValueError as e:
+        return error_response(e, 400)
+
+    except Exception:
+        return server_error("Yozuvni o‘chirish xatosi")
+
+
+# ==========================================
+# 404
+# ==========================================
+
+@app.errorhandler(404)
+def not_found(error):
+    return error_response("Sahifa topilmadi.", 404)
+
+
+# ==========================================
+# SERVERNI ISHGA TUSHIRISH
+# ==========================================
+
+if __name__ == "__main__":
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=False
+    )
