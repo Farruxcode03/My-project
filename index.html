@@ -1,0 +1,1278 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FARRUKH DATABASE</title>
+
+<style>
+:root{
+ --bg:#080e1c;--side:#101a2d;--panel:#121e32;
+ --line:#263650;--text:#e5edf9;--muted:#8ea0b8;
+ --blue:#38bdf8;--green:#4ade80;--red:#fb7185;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.layout{display:flex;min-height:100vh}
+.sidebar{
+ width:250px;flex-shrink:0;background:var(--side);
+ border-right:1px solid var(--line);padding:24px 16px
+}
+.logo{font-size:21px;font-weight:900;margin-bottom:35px}
+.logo span{color:var(--blue)}
+.sub{font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:6px}
+.menu-title{font-size:10px;color:#71839e;margin:24px 10px 10px;letter-spacing:1.5px}
+.menu{
+ display:block;width:100%;padding:12px;border:0;border-radius:9px;
+ background:transparent;color:#a8b7cc;text-align:left;
+ font-size:13px;margin-bottom:5px
+}
+.menu:hover,.menu.active{background:#1c3151;color:#60a5fa}
+.table-menu-item{display:flex;align-items:center;gap:3px;margin-bottom:5px}
+.table-menu-item .menu{
+ flex:1;min-width:0;margin:0;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap
+}
+.table-menu-item .more{padding:6px 10px;flex-shrink:0}
+.main{flex:1;min-width:0;padding:30px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:25px}
+.top p{font-size:12px;color:var(--muted);margin-top:7px}
+.status{border:1px solid #285d4a;border-radius:20px;padding:9px 13px;color:var(--green);font-size:11px}
+.welcome{
+ background:linear-gradient(120deg,#17345c,#164c67);
+ border:1px solid #286080;border-radius:16px;padding:25px;margin-bottom:20px
+}
+.welcome small{color:#7dd3fc;letter-spacing:2px}
+.welcome h2{margin:12px 0 8px;font-size:24px}
+.welcome p{color:#b8d2e5;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:20px}
+.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px}
+.card{padding:20px}
+.card p{font-size:12px;color:var(--muted)}
+.card h2{font-size:27px;margin:12px 0}
+.card small{color:#647b9b;font-size:11px}
+.panel{overflow:hidden;margin-bottom:20px}
+.panel-head{
+ padding:19px;border-bottom:1px solid var(--line);
+ display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap
+}
+.panel-head p{font-size:12px;color:var(--muted);margin-top:6px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{
+ border:1px solid #344967;background:#1d3760;color:white;
+ padding:10px 13px;border-radius:8px;font-size:12px
+}
+.btn:hover{filter:brightness(1.2)}
+.btn.primary{background:#087db5;border-color:#159bd7}
+.btn.danger{background:#70283a;border-color:#9f4056}
+.btn.success{background:#14533e;border-color:#247c5b}
+.btn.ghost{background:#18273d}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{
+ background:#0a1528;color:white;border:1px solid #344967;
+ border-radius:8px;padding:11px;outline:none;min-width:0
+}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+.search{min-width:210px}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th{background:#172943;color:#7dd3fc;font-size:11px;text-align:left;padding:15px}
+td{padding:13px 15px;border-bottom:1px solid #25354c;font-size:12px;color:#cbd5e1}
+tr:hover td{background:#1a2c46}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px;line-height:1.8}
+.row-check{accent-color:#38bdf8;width:15px;height:15px}
+.more{border:0;background:#263b59;color:white;border-radius:7px;padding:7px 11px;font-size:17px}
+.more:hover{background:#34577e}
+footer{margin:20px 0;color:#657995;font-size:11px}
+.modal-bg{
+ position:fixed;inset:0;background:#000b;display:flex;
+ align-items:center;justify-content:center;padding:15px;z-index:20
+}
+.modal{
+ width:min(540px,100%);max-height:90vh;overflow:auto;
+ background:#121e32;border:1px solid #344967;border-radius:15px;
+ padding:22px;box-shadow:0 20px 70px #0009
+}
+.modal h2{font-size:19px;margin-bottom:7px}
+.modal p{color:var(--muted);font-size:12px;margin-bottom:18px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;min-width:0}
+.field label{font-size:12px;color:#a8b7cc}
+.field input,.field textarea,.field select{width:100%}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.toast{
+ position:fixed;right:20px;bottom:20px;background:#17345c;
+ border:1px solid #286080;color:white;padding:13px 18px;
+ border-radius:10px;z-index:50;font-size:13px;max-width:90vw
+}
+.context-menu{
+ position:fixed;z-index:30;background:#172943;border:1px solid #3a5273;
+ border-radius:9px;padding:6px;min-width:170px;box-shadow:0 10px 30px #0008
+}
+.context-menu button{
+ display:block;width:100%;text-align:left;background:transparent;
+ border:0;color:white;padding:10px;border-radius:6px;font-size:12px
+}
+.context-menu button:hover{background:#294365}
+.context-menu button.danger-item{color:#fb7185}
+.hidden{display:none!important}
+@media(max-width:800px){
+ .layout{display:block}
+ .sidebar{width:100%;padding:17px}
+ .logo{margin-bottom:15px}
+ .main{padding:17px}
+ .stats{grid-template-columns:1fr}
+ .top{align-items:flex-start;flex-wrap:wrap}
+ .search{min-width:100%;width:100%}
+ .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+ <div class="logo">
+  FARRUKH <span>DB</span>
+  <div class="sub">DATABASE MANAGEMENT SYSTEM</div>
+ </div>
+
+ <div class="menu-title">ASOSIY</div>
+ <button class="menu active" id="dashboardMenu">▦ Dashboard</button>
+
+ <div class="menu-title">DATABASE JADVALLARI</div>
+ <div id="tableMenu"><p class="menu">Yuklanmoqda...</p></div>
+
+ <div class="menu-title">BOSHQARUV</div>
+ <button class="menu" id="createTableBtn">＋ Yangi jadval yaratish</button>
+ <button class="menu" id="refreshBtn">↻ Ma’lumotlarni yangilash</button>
+</aside>
+
+<main class="main">
+ <header class="top">
+  <div>
+   <h1 id="pageTitle">Dashboard</h1>
+   <p>Ma’lumotlar bazasini boshqarish markazi</p>
+  </div>
+  <div class="status" id="status">● Ulanmoqda...</div>
+ </header>
+
+ <section class="welcome">
+  <small>WELCOME BACK</small>
+  <h2>Xush kelibsiz, Farrukh!</h2>
+  <p>PostgreSQL ma’lumotlar bazangizni bitta joydan boshqaring.</p>
+ </section>
+
+ <section class="stats">
+  <div class="card">
+   <p>Database holati</p>
+   <h2 id="dbStatus">...</h2>
+   <small>PostgreSQL server</small>
+  </div>
+  <div class="card">
+   <p>Jadvallar soni</p>
+   <h2 id="tableCount">0</h2>
+   <small>Public schema</small>
+  </div>
+  <div class="card">
+   <p>Yozuvlar soni</p>
+   <h2 id="rowCount">0</h2>
+   <small id="rowCountLabel">Barcha jadvallar</small>
+  </div>
+ </section>
+
+ <section class="panel">
+  <div class="panel-head">
+   <div>
+    <h3 id="tableTitle">Ma’lumotlar</h3>
+    <p id="tableDescription">Jadvalni tanlang yoki boshqaruvni boshlang</p>
+   </div>
+   <div class="toolbar">
+    <button class="btn primary" id="addBtn" disabled>＋ Add</button>
+    <button class="btn" id="exportBtn" disabled>⇩ CSV</button>
+    <button class="btn" id="panelRefreshBtn">↻ Yangilash</button>
+   </div>
+  </div>
+
+  <div class="panel-head">
+   <input class="search" id="searchInput" placeholder="⌕ Jadvaldan qidirish..." disabled>
+   <div class="toolbar">
+    <button class="btn ghost" id="selectAllBtn" disabled>☑ Barchasini tanlash</button>
+    <button class="btn danger" id="bulkDeleteBtn" disabled>Tanlanganlarni o‘chirish</button>
+   </div>
+  </div>
+
+  <div class="table-wrap" id="dataArea">
+   <div class="empty">Jadvallar yuklanmoqda...</div>
+  </div>
+ </section>
+
+ <footer>FARRUKH DATABASE © 2026 — POWERED BY PYTHON & POSTGRESQL</footer>
+</main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="menuRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+"use strict";
+
+/* ==========================================
+   1. GLOBAL O'ZGARUVCHILAR
+========================================== */
+
+const $ = id => document.getElementById(id);
+
+let currentTable = "";
+let currentColumns = [];
+let currentRows = [];
+let primaryKeys = [];
+let editableCols = [];
+let selectedRows = new Set();
+let sortState = {column:null, ascending:true};
+
+
+/* ==========================================
+   2. API VA YORDAMCHI FUNKSIYALAR
+========================================== */
+
+async function api(url, options = {}) {
+ const response = await fetch(url, {
+  ...options,
+  headers: {
+   ...(options.body ? {"Content-Type":"application/json"} : {}),
+   ...(options.headers || {})
+  }
+ });
+
+ let data;
+
+ try {
+  data = await response.json();
+ } catch {
+  throw new Error("Server JSON formatida javob qaytarmadi.");
+ }
+
+ if (!response.ok || data.success === false) {
+  throw new Error(data.error || data.message || "Server xatosi: " + response.status);
+ }
+
+ return data;
+}
+
+function notify(message) {
+ const root = $("toastRoot");
+ root.innerHTML = "";
+
+ const box = document.createElement("div");
+ box.className = "toast";
+ box.textContent = message;
+ root.appendChild(box);
+
+ setTimeout(() => box.remove(), 3500);
+}
+
+function setOnline(online, message) {
+ $("status").textContent = online ? "● Ulangan" : "● Ulanishda xato";
+ $("status").style.color = online ? "var(--green)" : "var(--red)";
+ $("dbStatus").textContent = online ? "ONLINE" : "OFFLINE";
+}
+
+function makeCell(value) {
+ const td = document.createElement("td");
+ td.textContent = value === null ? "NULL" : String(value ?? "");
+ return td;
+}
+
+function updateBulkButton() {
+ const button = $("bulkDeleteBtn");
+ button.disabled = selectedRows.size === 0;
+ button.textContent = selectedRows.size
+  ? "🗑 Tanlanganlarni o‘chirish (" + selectedRows.size + ")"
+  : "Tanlanganlarni o‘chirish";
+}
+
+function getPrimaryValue(row) {
+ if (primaryKeys.length !== 1) return null;
+ return row[primaryKeys[0]] ?? null;
+}
+
+
+/* ==========================================
+   3. DASHBOARD
+========================================== */
+
+async function showDashboard() {
+ currentTable = "";
+ selectedRows.clear();
+
+ $("dashboardMenu").classList.add("active");
+ $("pageTitle").textContent = "Dashboard";
+ $("tableTitle").textContent = "Ma’lumotlar";
+ $("tableDescription").textContent = "Jadvallar ro‘yxati va boshqaruvi";
+
+ $("addBtn").disabled = true;
+ $("exportBtn").disabled = true;
+ $("searchInput").disabled = true;
+ $("searchInput").value = "";
+ $("selectAllBtn").disabled = true;
+ updateBulkButton();
+
+ await loadDashboard();
+}
+
+async function loadDashboard() {
+ $("dataArea").innerHTML = '<div class="empty">Ma’lumotlar yuklanmoqda...</div>';
+
+ try {
+  const data = await api("/api/dashboard");
+  const tables = data.tables || [];
+
+  setOnline(true);
+  $("tableCount").textContent = data.total_tables ?? tables.length;
+  $("rowCount").textContent = data.total_rows ?? 0;
+  $("rowCountLabel").textContent = "Barcha jadvallar";
+
+  renderTableMenu(tables);
+  renderDashboardTables(data.table_info || [], tables);
+
+ } catch (error) {
+  setOnline(false);
+  $("tableMenu").innerHTML = '<p class="menu">Server bilan aloqa yo‘q</p>';
+  $("dataArea").innerHTML = "";
+
+  const empty = document.createElement("div");
+  empty.className = "empty";
+  empty.textContent = "Server bilan aloqa yo‘q: " + error.message;
+  $("dataArea").appendChild(empty);
+ }
+}
+
+async function updateDashboardStats() {
+ try {
+  const data = await api("/api/dashboard");
+  $("tableCount").textContent = data.total_tables ?? 0;
+
+  if (!currentTable) {
+   $("rowCount").textContent = data.total_rows ?? 0;
+  }
+
+  renderTableMenu(data.tables || []);
+ } catch (error) {
+  console.error(error);
+ }
+}
+
+function renderTableMenu(tables) {
+ const menu = $("tableMenu");
+ menu.innerHTML = "";
+
+ tables.forEach(tableName => {
+  const item = document.createElement("div");
+  item.className = "table-menu-item";
+
+  const open = document.createElement("button");
+  open.className = "menu" + (tableName === currentTable ? " active" : "");
+  open.textContent = "▤ " + tableName;
+  open.title = tableName;
+  open.onclick = () => loadTable(tableName);
+
+  const more = document.createElement("button");
+  more.className = "more";
+  more.textContent = "⋮";
+  more.title = "Jadval amallari";
+  more.onclick = event => openTableMenu(event, tableName);
+
+  item.append(open, more);
+  menu.appendChild(item);
+ });
+
+ if (!tables.length) {
+  menu.innerHTML = '<p class="menu">Jadvallar topilmadi</p>';
+ }
+}
+
+function renderDashboardTables(info, tables) {
+ $("pageTitle").textContent = "Dashboard";
+ $("tableTitle").textContent = "Database jadvallari";
+ $("tableDescription").textContent = "Jadvalni ochish yoki boshqarish";
+
+ const area = $("dataArea");
+ area.innerHTML = "";
+
+ if (!tables.length) {
+  area.innerHTML = '<div class="empty">Hozircha jadval yo‘q. Yangi jadval yarating.</div>';
+  return;
+ }
+
+ const table = document.createElement("table");
+ const thead = document.createElement("thead");
+ const header = document.createElement("tr");
+
+ ["№", "JADVAL NOMI", "QATORLAR", "AMALLAR"].forEach(title => {
+  const th = document.createElement("th");
+  th.textContent = title;
+  header.appendChild(th);
+ });
+
+ thead.appendChild(header);
+ table.appendChild(thead);
+
+ const tbody = document.createElement("tbody");
+
+ tables.forEach((name, index) => {
+  const infoItem = info.find(item => item.name === name);
+  const tr = document.createElement("tr");
+
+  tr.appendChild(makeCell(index + 1));
+  tr.appendChild(makeCell("▤ " + name));
+  tr.appendChild(makeCell(infoItem?.rows ?? "—"));
+
+  const actions = document.createElement("td");
+
+  const open = document.createElement("button");
+  open.className = "btn";
+  open.textContent = "Ochish →";
+  open.onclick = () => loadTable(name);
+
+  const more = document.createElement("button");
+  more.className = "more";
+  more.style.marginLeft = "7px";
+  more.textContent = "⋮";
+  more.onclick = event => openTableMenu(event, name);
+
+  actions.append(open, more);
+  tr.appendChild(actions);
+  tbody.appendChild(tr);
+ });
+
+ table.appendChild(tbody);
+ area.appendChild(table);
+}
+
+
+/* ==========================================
+   4. JADVALNI OCHISH
+========================================== */
+
+async function loadTable(tableName) {
+ if (!tableName) return;
+
+ currentTable = tableName;
+ selectedRows.clear();
+ sortState = {column:null, ascending:true};
+
+ $("dashboardMenu").classList.remove("active");
+ $("pageTitle").textContent = tableName;
+ $("tableTitle").textContent = tableName;
+ $("tableDescription").textContent = "Jadval yozuvlarini boshqarish";
+
+ $("dataArea").innerHTML = '<div class="empty">Ma’lumotlar yuklanmoqda...</div>';
+ $("addBtn").disabled = true;
+ $("exportBtn").disabled = true;
+ $("searchInput").disabled = true;
+ $("selectAllBtn").disabled = true;
+ $("searchInput").value = "";
+ updateBulkButton();
+
+ try {
+  const data = await api("/api/data?table=" + encodeURIComponent(tableName));
+
+  if (currentTable !== tableName) return;
+
+  currentColumns = data.columns || [];
+  currentRows = data.rows || [];
+  primaryKeys = data.primary_key || [];
+  editableCols = data.editable_columns || [];
+
+  $("rowCount").textContent = currentRows.length;
+  $("rowCountLabel").textContent = "Tanlangan jadval";
+
+  $("addBtn").disabled = false;
+  $("exportBtn").disabled = false;
+  $("searchInput").disabled = false;
+  $("selectAllBtn").disabled = primaryKeys.length !== 1;
+
+  renderRows();
+  renderTableMenu(dataTablesFromMenu());
+
+ } catch (error) {
+  $("dataArea").innerHTML = "";
+
+  const message = document.createElement("div");
+  message.className = "empty";
+  message.textContent = "Jadvalni ochishda xato: " + error.message;
+  $("dataArea").appendChild(message);
+
+  notify(error.message);
+ } finally {
+  updateBulkButton();
+ }
+}
+
+function dataTablesFromMenu() {
+ return [...document.querySelectorAll("#tableMenu .table-menu-item .menu")]
+  .map(button => button.title);
+}
+
+
+/* ==========================================
+   5. QATORLARNI CHIZISH
+========================================== */
+
+function renderRows() {
+ const area = $("dataArea");
+ if (!currentTable) return;
+
+ const query = $("searchInput").value.toLowerCase().trim();
+
+ let rows = currentRows
+  .map((row, index) => ({row, index}))
+  .filter(item => item.row && currentColumns.some(col =>
+   String(item.row[col] ?? "").toLowerCase().includes(query)
+  ));
+
+ if (sortState.column !== null) {
+  const column = currentColumns[sortState.column];
+
+  rows.sort((a, b) => {
+   const x = String(a.row[column] ?? "").toLowerCase();
+   const y = String(b.row[column] ?? "").toLowerCase();
+
+   return (x < y ? -1 : x > y ? 1 : 0) *
+    (sortState.ascending ? 1 : -1);
+  });
+ }
+
+ area.innerHTML = "";
+
+ if (!currentColumns.length) {
+  area.innerHTML = '<div class="empty">Jadval ustunlari topilmadi.</div>';
+  return;
+ }
+
+ if (!rows.length) {
+  area.innerHTML = '<div class="empty">' +
+   (currentRows.length
+    ? "Qidiruv bo‘yicha ma’lumot topilmadi."
+    : "Jadval bo‘sh. Add tugmasi orqali ma’lumot qo‘shing.") +
+   '</div>';
+  return;
+ }
+
+ const table = document.createElement("table");
+ const thead = document.createElement("thead");
+ const header = document.createElement("tr");
+
+ const checkHead = document.createElement("th");
+ checkHead.textContent = "Tanlash";
+ header.appendChild(checkHead);
+
+ const numberHead = document.createElement("th");
+ numberHead.textContent = "№";
+ header.appendChild(numberHead);
+
+ currentColumns.forEach((col, index) => {
+  const th = document.createElement("th");
+  th.textContent = col + (
+   sortState.column === index
+    ? (sortState.ascending ? " ↑" : " ↓")
+    : " ↕"
+  );
+
+  th.style.cursor = "pointer";
+  th.onclick = () => {
+   if (sortState.column === index) {
+    sortState.ascending = !sortState.ascending;
+   } else {
+    sortState.column = index;
+    sortState.ascending = true;
+   }
+   renderRows();
+  };
+
+  header.appendChild(th);
+ });
+
+ const actionHead = document.createElement("th");
+ actionHead.textContent = "Amallar";
+ header.appendChild(actionHead);
+
+ thead.appendChild(header);
+ table.appendChild(thead);
+
+ const tbody = document.createElement("tbody");
+
+ rows.forEach(({row, index}, visibleIndex) => {
+  const tr = document.createElement("tr");
+  const id = getPrimaryValue(row);
+
+  const checkCell = document.createElement("td");
+  const check = document.createElement("input");
+
+  check.type = "checkbox";
+  check.className = "row-check";
+  check.disabled = id === null || id === undefined;
+  check.checked = id !== null && selectedRows.has(String(id));
+
+  check.onchange = () => {
+   if (check.checked) selectedRows.add(String(id));
+   else selectedRows.delete(String(id));
+   updateBulkButton();
+  };
+
+  checkCell.appendChild(check);
+  tr.appendChild(checkCell);
+
+  const numberCell = makeCell(visibleIndex + 1);
+  numberCell.style.color = "#7dd3fc";
+  tr.appendChild(numberCell);
+
+  currentColumns.forEach(col => {
+   tr.appendChild(makeCell(row[col]));
+  });
+
+  const actionCell = document.createElement("td");
+  const more = document.createElement("button");
+
+  more.className = "more";
+  more.textContent = "⋮";
+  more.onclick = event => openRowMenu(event, index);
+
+  actionCell.appendChild(more);
+  tr.appendChild(actionCell);
+  tbody.appendChild(tr);
+ });
+
+ table.appendChild(tbody);
+ area.appendChild(table);
+ updateBulkButton();
+}
+
+
+/* ==========================================
+   6. MODAL OYNASI
+========================================== */
+
+function closeModal() {
+ $("modalRoot").innerHTML = "";
+}
+
+function openModal(title, description, fields, submitText, onSubmit, readOnly = false) {
+ const root = $("modalRoot");
+ root.innerHTML = "";
+
+ const bg = document.createElement("div");
+ bg.className = "modal-bg";
+ bg.onclick = event => {
+  if (event.target === bg) closeModal();
+ };
+
+ const modal = document.createElement("div");
+ modal.className = "modal";
+
+ const heading = document.createElement("h2");
+ heading.textContent = title;
+
+ const desc = document.createElement("p");
+ desc.textContent = description;
+
+ const form = document.createElement("form");
+ const grid = document.createElement("div");
+ grid.className = "form-grid";
+
+ fields.forEach(field => {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+
+  const label = document.createElement("label");
+  label.textContent = field.label;
+
+  let input;
+
+  if (field.type === "textarea") {
+   input = document.createElement("textarea");
+   input.rows = 3;
+  } else if (field.type === "select") {
+   input = document.createElement("select");
+
+   (field.options || []).forEach(option => {
+    const opt = document.createElement("option");
+    opt.value = option;
+    opt.textContent = option;
+    input.appendChild(opt);
+   });
+  } else {
+   input = document.createElement("input");
+   input.type = field.type || "text";
+  }
+
+  input.name = field.name;
+  input.required = !!field.required;
+
+  if (field.value !== undefined && field.value !== null) {
+   input.value = field.value;
+  }
+
+  if (field.placeholder) input.placeholder = field.placeholder;
+  if (readOnly) input.disabled = true;
+
+  wrap.append(label, input);
+  grid.appendChild(wrap);
+ });
+
+ const actions = document.createElement("div");
+ actions.className = "modal-actions";
+
+ const cancel = document.createElement("button");
+ cancel.type = "button";
+ cancel.className = "btn ghost";
+ cancel.textContent = readOnly ? "Yopish" : "Bekor qilish";
+ cancel.onclick = closeModal;
+ actions.appendChild(cancel);
+
+ if (!readOnly) {
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "btn primary";
+  submit.textContent = submitText;
+  actions.appendChild(submit);
+
+  form.onsubmit = async event => {
+   event.preventDefault();
+
+   const values = Object.fromEntries(new FormData(form).entries());
+
+   submit.disabled = true;
+   submit.textContent = "Saqlanmoqda...";
+
+   try {
+    await onSubmit(values);
+    closeModal();
+   } catch (error) {
+    notify("Xatolik: " + error.message);
+    submit.disabled = false;
+    submit.textContent = submitText;
+   }
+  };
+ } else {
+  form.onsubmit = event => {
+   event.preventDefault();
+   closeModal();
+  };
+ }
+
+ form.append(grid, actions);
+ modal.append(heading, desc, form);
+ bg.appendChild(modal);
+ root.appendChild(bg);
+}
+
+
+/* ==========================================
+   7. MA'LUMOT QO'SHISH
+========================================== */
+
+function openAdd() {
+ if (!currentTable) return;
+
+ const fields = editableCols.map(col => ({
+  name: col,
+  label: col,
+  type: "text",
+  required: false,
+  placeholder: col + " kiriting"
+ }));
+
+ if (!fields.length) {
+  notify("Bu jadvalda kiritish mumkin bo‘lgan ustun yo‘q.");
+  return;
+ }
+
+ const tableName = currentTable;
+
+ openModal(
+  "＋ Yangi ma’lumot qo‘shish",
+  "Jadval: " + tableName,
+  fields,
+  "Saqlash",
+  async values => {
+   await api("/api/records", {
+    method: "POST",
+    body: JSON.stringify({table: tableName, data: values})
+   });
+
+   notify("Ma’lumot qo‘shildi.");
+   await loadTable(tableName);
+   await updateDashboardStats();
+  }
+ );
+}
+
+
+/* ==========================================
+   8. MA'LUMOTNI KO'RISH
+========================================== */
+
+function viewRow(index) {
+ const row = currentRows[index];
+ if (!row) return;
+
+ const fields = currentColumns.map(col => ({
+  name: col,
+  label: col,
+  value: row[col] === null ? "NULL" : String(row[col] ?? ""),
+  type: "text"
+ }));
+
+ openModal(
+  "👁 Yozuv ma’lumotlari",
+  "Jadval: " + currentTable,
+  fields,
+  "",
+  null,
+  true
+ );
+}
+
+
+/* ==========================================
+   9. MA'LUMOTNI TAHRIRLASH
+========================================== */
+
+function openEdit(index) {
+ const row = currentRows[index];
+ if (!row) return;
+
+ if (primaryKeys.length !== 1) {
+  notify("Tahrirlash uchun bitta PRIMARY KEY ustuni kerak.");
+  return;
+ }
+
+ const id = getPrimaryValue(row);
+ if (id === null || id === undefined) {
+  notify("PRIMARY KEY qiymati topilmadi.");
+  return;
+ }
+
+ const fields = editableCols.map(col => ({
+  name: col,
+  label: col,
+  type: "text",
+  value: row[col] ?? ""
+ }));
+
+ if (!fields.length) {
+  notify("Tahrirlash mumkin bo‘lgan ustun topilmadi.");
+  return;
+ }
+
+ const tableName = currentTable;
+
+ openModal(
+  "✏️ Ma’lumotni tahrirlash",
+  "Jadval: " + tableName,
+  fields,
+  "Saqlash",
+  async values => {
+   await api(
+    "/api/records/" + encodeURIComponent(id) +
+    "?table=" + encodeURIComponent(tableName),
+    {
+     method: "PUT",
+     body: JSON.stringify({data: values})
+    }
+   );
+
+   notify("Ma’lumot yangilandi.");
+   await loadTable(tableName);
+   await updateDashboardStats();
+  }
+ );
+}
+
+
+/* ==========================================
+   10. QATOR MENYUSI
+========================================== */
+
+function closeContextMenu() {
+ $("menuRoot").innerHTML = "";
+}
+
+function addMenuButton(menu, label, callback, danger = false) {
+ const button = document.createElement("button");
+ button.textContent = label;
+ if (danger) button.className = "danger-item";
+
+ button.onclick = () => {
+  closeContextMenu();
+  callback();
+ };
+
+ menu.appendChild(button);
+}
+
+function positionMenu(menu, x, y) {
+ $("menuRoot").appendChild(menu);
+
+ const width = 180;
+ const height = menu.offsetHeight || 130;
+
+ menu.style.left = Math.max(5, Math.min(x, window.innerWidth - width - 5)) + "px";
+ menu.style.top = Math.max(5, Math.min(y, window.innerHeight - height - 5)) + "px";
+
+ setTimeout(() => {
+  document.addEventListener("click", closeContextMenu, {once:true});
+ }, 0);
+}
+
+function openRowMenu(event, index) {
+ event.stopPropagation();
+ closeContextMenu();
+
+ const menu = document.createElement("div");
+ menu.className = "context-menu";
+
+ addMenuButton(menu, "👁 Ko‘rish", () => viewRow(index));
+ addMenuButton(menu, "✏️ Tahrirlash", () => openEdit(index));
+ addMenuButton(menu, "🗑 O‘chirish", () => deleteRow(index), true);
+
+ positionMenu(menu, event.clientX, event.clientY);
+}
+
+function openTableMenu(event, tableName) {
+ event.stopPropagation();
+ closeContextMenu();
+
+ const menu = document.createElement("div");
+ menu.className = "context-menu";
+
+ addMenuButton(menu, "▤ Jadvalni ochish", () => loadTable(tableName));
+ addMenuButton(menu, "✏️ Nomini o‘zgartirish", () => renameTable(tableName));
+ addMenuButton(menu, "🗑 Jadvalni o‘chirish", () => deleteTable(tableName), true);
+
+ const rect = event.currentTarget.getBoundingClientRect();
+ positionMenu(menu, rect.right - 175, rect.bottom + 5);
+}
+
+
+/* ==========================================
+   11. BITTA QATORNI O'CHIRISH
+========================================== */
+
+async function deleteRow(index) {
+ if (primaryKeys.length !== 1) {
+  notify("O‘chirish uchun bitta PRIMARY KEY ustuni kerak.");
+  return;
+ }
+
+ const row = currentRows[index];
+ const id = getPrimaryValue(row);
+
+ if (id === null || id === undefined) return;
+ if (!confirm("Ushbu yozuvni o‘chirmoqchimisiz?")) return;
+
+ const tableName = currentTable;
+
+ try {
+  await api(
+   "/api/records/" + encodeURIComponent(id) +
+   "?table=" + encodeURIComponent(tableName),
+   {method:"DELETE"}
+  );
+
+  selectedRows.delete(String(id));
+  notify("Yozuv o‘chirildi.");
+
+  await loadTable(tableName);
+  await updateDashboardStats();
+
+ } catch (error) {
+  notify("O‘chirishda xato: " + error.message);
+ }
+}
+
+
+/* ==========================================
+   12. TANLANGAN QATORLARNI O'CHIRISH
+========================================== */
+
+function selectAllRows() {
+ if (primaryKeys.length !== 1) {
+  notify("Tanlash uchun bitta PRIMARY KEY ustuni kerak.");
+  return;
+ }
+
+ const query = $("searchInput").value.toLowerCase().trim();
+
+ const visible = currentRows.filter(row =>
+  currentColumns.some(col =>
+   String(row[col] ?? "").toLowerCase().includes(query)
+  )
+ );
+
+ const allSelected = visible.length > 0 && visible.every(row => {
+  const id = getPrimaryValue(row);
+  return id !== null && selectedRows.has(String(id));
+ });
+
+ visible.forEach(row => {
+  const id = getPrimaryValue(row);
+  if (id === null || id === undefined) return;
+
+  if (allSelected) selectedRows.delete(String(id));
+  else selectedRows.add(String(id));
+ });
+
+ renderRows();
+}
+
+async function deleteSelected() {
+ if (primaryKeys.length !== 1) {
+  notify("O‘chirish uchun bitta PRIMARY KEY ustuni kerak.");
+  return;
+ }
+
+ const ids = [...selectedRows];
+ if (!ids.length) return;
+
+ if (!confirm(ids.length + " ta yozuv o‘chirilsinmi?")) return;
+
+ const tableName = currentTable;
+
+ try {
+  for (const id of ids) {
+   await api(
+    "/api/records/" + encodeURIComponent(id) +
+    "?table=" + encodeURIComponent(tableName),
+    {method:"DELETE"}
+   );
+  }
+
+  selectedRows.clear();
+  notify("Tanlangan yozuvlar o‘chirildi.");
+
+  await loadTable(tableName);
+  await updateDashboardStats();
+
+ } catch (error) {
+  notify("Xatolik: " + error.message);
+  await loadTable(tableName);
+ }
+}
+
+
+/* ==========================================
+   13. YANGI JADVAL YARATISH
+========================================== */
+
+function createTable() {
+ const fields = [
+  {
+   name: "name",
+   label: "Jadval nomi",
+   required: true,
+   placeholder: "masalan: mijozlar"
+  },
+  {
+   name: "columns",
+   label: "Ustunlar (vergul bilan ajrating)",
+   type: "textarea",
+   required: false,
+   placeholder: "ism, telefon, manzil"
+  }
+ ];
+
+ openModal(
+  "＋ Yangi jadval yaratish",
+  "Jadvalga id PRIMARY KEY avtomatik qo‘shiladi.",
+  fields,
+  "Jadval yaratish",
+  async values => {
+   const columns = values.columns
+    .split(",")
+    .map(x => x.trim())
+    .filter(Boolean);
+
+   const name = values.name.trim();
+
+   const result = await api("/api/tables", {
+    method: "POST",
+    body: JSON.stringify({name, columns})
+   });
+
+   currentTable = result.table;
+   notify("Yangi jadval yaratildi.");
+
+   await updateDashboardStats();
+   await loadTable(result.table);
+  }
+ );
+}
+
+
+/* ==========================================
+   14. JADVAL NOMINI O'ZGARTIRISH
+========================================== */
+
+async function renameTable(oldName) {
+ const newName = prompt("Yangi jadval nomini kiriting:", oldName);
+
+ if (newName === null) return;
+
+ const name = newName.trim();
+
+ if (!name) {
+  notify("Yangi nomni kiriting.");
+  return;
+ }
+
+ try {
+  await api("/api/tables/" + encodeURIComponent(oldName), {
+   method: "PATCH",
+   body: JSON.stringify({new_name: name})
+  });
+
+  const wasOpen = currentTable === oldName;
+  if (wasOpen) currentTable = name;
+
+  notify("Jadval nomi o‘zgartirildi.");
+
+  await updateDashboardStats();
+
+  if (wasOpen) {
+   await loadTable(name);
+  } else {
+   await loadDashboard();
+  }
+
+ } catch (error) {
+  notify("Nomni o‘zgartirishda xato: " + error.message);
+ }
+}
+
+
+/* ==========================================
+   15. JADVALNI O'CHIRISH
+========================================== */
+
+async function deleteTable(tableName) {
+ const confirmed = confirm(
+  "'" + tableName + "' jadvali va uning barcha ma’lumotlari o‘chirilsinmi?\n\n" +
+  "Bu amalni qaytarib bo‘lmaydi!"
+ );
+
+ if (!confirmed) return;
+
+ try {
+  await api("/api/tables/" + encodeURIComponent(tableName), {
+   method: "DELETE"
+  });
+
+  if (currentTable === tableName) {
+   currentTable = "";
+   currentColumns = [];
+   currentRows = [];
+   primaryKeys = [];
+   editableCols = [];
+   selectedRows.clear();
+  }
+
+  notify("Jadval o‘chirildi.");
+  await showDashboard();
+
+ } catch (error) {
+  notify("Jadvalni o‘chirishda xato: " + error.message);
+ }
+}
+
+
+/* ==========================================
+   16. CSV EKSPORT
+========================================== */
+
+function exportCSV() {
+ if (!currentRows.length) {
+  notify("Eksport uchun ma’lumot yo‘q.");
+  return;
+ }
+
+ const escapeCSV = value =>
+  '"' + String(value ?? "").replace(/"/g, '""') + '"';
+
+ const csv = [
+  currentColumns.map(escapeCSV).join(","),
+  ...currentRows.map(row =>
+   currentColumns.map(col => escapeCSV(row[col])).join(",")
+  )
+ ].join("\r\n");
+
+ const blob = new Blob(["\uFEFF" + csv], {
+  type: "text/csv;charset=utf-8"
+ });
+
+ const url = URL.createObjectURL(blob);
+ const link = document.createElement("a");
+
+ link.href = url;
+ link.download = currentTable + ".csv";
+ document.body.appendChild(link);
+ link.click();
+ link.remove();
+
+ setTimeout(() => URL.revokeObjectURL(url), 1000);
+ notify("CSV fayl tayyor.");
+}
+
+
+/* ==========================================
+   17. YANGILASH
+========================================== */
+
+async function refreshCurrent() {
+ if (currentTable) {
+  await loadTable(currentTable);
+  await updateDashboardStats();
+ } else {
+  await loadDashboard();
+ }
+}
+
+
+/* ==========================================
+   18. TUGMALAR VA QIDIRUV
+========================================== */
+
+$("dashboardMenu").addEventListener("click", showDashboard);
+$("createTableBtn").addEventListener("click", createTable);
+$("refreshBtn").addEventListener("click", refreshCurrent);
+$("panelRefreshBtn").addEventListener("click", refreshCurrent);
+$("addBtn").addEventListener("click", openAdd);
+$("exportBtn").addEventListener("click", exportCSV);
+$("searchInput").addEventListener("input", renderRows);
+$("selectAllBtn").addEventListener("click", selectAllRows);
+$("bulkDeleteBtn").addEventListener("click", deleteSelected);
+
+document.addEventListener("keydown", event => {
+ if (event.key === "Escape") {
+  closeModal();
+  closeContextMenu();
+ }
+});
+
+
+/* ==========================================
+   19. DASTURNI ISHGA TUSHIRISH
+========================================== */
+
+loadDashboard();
+
+</script>
+</body>
+</html>
