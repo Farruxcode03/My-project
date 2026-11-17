@@ -472,7 +472,7 @@ def rename_table(table):
                         sql.Identifier(table),
                         sql.Identifier(new_name)
                     )
-                )
+                
 
         return jsonify({
             "success": True,
