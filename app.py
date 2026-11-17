@@ -15,7 +15,7 @@ app = Flask(__name__)
 # POSTGRESQL SOZLAMALARI
 # ==========================================
 
-DATABASE_URL=os.getenev("DATABASE_URL)
+DATABASE_URL=os.getenev("DATABASE_URL")
 
 
 @contextmanager
