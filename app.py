@@ -258,7 +258,7 @@ def health():
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     try:
-        with db_connection() as conn:
+        with db_connection(DATABASE_URL,sslmode='require') as conn:
             with conn.cursor(
                 cursor_factory=RealDictCursor
             ) as cur:
