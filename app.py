@@ -15,13 +15,7 @@ app = Flask(__name__)
 # POSTGRESQL SOZLAMALARI
 # ==========================================
 
-DB_CONFIG = {
-    "host": "localhost",
-    "database": "postgres",
-    "user": "postgres",
-    "password": os.getenv("DB_PASSWORD", "12345678"),
-    "port": 5432
-}
+DATABASE_URL=os.getenev("DATABASE_URL)
 
 
 @contextmanager
@@ -31,7 +25,7 @@ def db_connection():
         with conn:
             yield conn
     finally:
-        conn.close()
+        conn.psycopg2.connect(DATABASE_URL)
 
 
 # ==========================================
