@@ -20,7 +20,7 @@ DATABASE_URL=os.getenv("DATABASE_URL")
 
 @contextmanager
 def db_connection():
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn:
             yield conn
