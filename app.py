@@ -1,5 +1,3 @@
-
-from flask import Flask, jsonify, request, send_from_directory
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
@@ -9,7 +7,7 @@ from decimal import Decimal
 import re
 import os
 
-app = Flask(__name__)
+app = Flask(name)
 
 # ==========================================
 # SUPABASE POSTGRESQL
@@ -175,9 +173,6 @@ def get_table_names(cur):
         row["table_name"]
         for row in cur.fetchall()
     ]
-
-
-def get_count(cur, table):
     cur.execute(
         sql.SQL(
             "SELECT COUNT(*) AS total FROM {}.{}"
@@ -258,7 +253,8 @@ def health():
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     try:
-        with db_connection(DATABASE_URL,sslmode='require') as conn:
+        # To'g'rilandi: Parametrlarsiz chaqirildi
+        with db_connection() as conn:
             with conn.cursor(
                 cursor_factory=RealDictCursor
             ) as cur:
@@ -335,8 +331,6 @@ def get_table_data():
 
     except ValueError as e:
         return error_response(e, 404)
-
-    except Exception:
         return server_error("Jadval ma'lumotlarini olish xatosi")
 
 
@@ -471,8 +465,6 @@ def rename_table(table):
                     raise ValueError(
                         "Yangi nom bilan jadval mavjud."
                     )
-
-                cur.execute(
                     sql.SQL(
                         "ALTER TABLE {}.{} RENAME TO {}"
                     ).format(
@@ -612,9 +604,6 @@ def add_record():
 
     except Exception:
         return server_error("Yozuv qo‘shish xatosi")
-
-
-# ==========================================
 # YOZUVNI TAHRIRLASH
 # ==========================================
 
@@ -752,8 +741,6 @@ def delete_record(record_id):
 # ==========================================
 # 404
 # ==========================================
-
-@app.errorhandler(404)
 def not_found(error):
     return error_response("Sahifa topilmadi.", 404)
 
@@ -762,7 +749,7 @@ def not_found(error):
 # SERVERNI ISHGA TUSHIRISH
 # ==========================================
 
-if __name__ == "__main__":
+if name == "main":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
